@@ -10,14 +10,7 @@ Stitch lets you define your service procedures with Python type hints—whether 
   Expose a `/~stitch` endpoint that publishes your service’s full API shape in JSON Schema.
 - **Multi-model support**  
   First-class adapters for `dataclasses`, `attrs`, `msgspec`, and `pydantic`.
-- **Automatic stub generation**  
-  Builds PEP 561 stubs on the fly; IDEs (PyCharm, VS Code) and type checkers (Mypy, Pyright) understand your RPC calls.
-- **Pluggable transports**  
-  HTTP/1.1 JSON by default; extendable to WebSockets, HTTP/2, or Unix sockets.
-- **Runtime validation**  
-  Uses the fastest available codec for each model type, with optional zero-validation mode for hot paths.
-- **OpenAPI & GraphQL integration**  
-  Generate the same typed client from any OpenAPI 3 or GraphQL schema.
+- **More to come**
 
 ## Quickstart
 
