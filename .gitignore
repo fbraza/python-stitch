@@ -210,3 +210,7 @@ __marimo__/
 # Code Assistant
 AGENTS.md
 .aider*
+
+# os x
+.DS_Store
+src/.DS_Store
