@@ -4,7 +4,7 @@ import attrs
 import msgspec
 import pydantic
 
-from pytrpc import models
+from stitch import models
 
 
 class User(pydantic.BaseModel):

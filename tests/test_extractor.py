@@ -4,7 +4,7 @@ from typing import get_type_hints
 from pydantic import BaseModel
 from msgspec import Struct
 
-from pytrpc import extractor
+from stitch import extractor
 
 
 class User(BaseModel):

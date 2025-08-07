@@ -1,5 +1,5 @@
 [project]
-name = "python-trpc"
+name = "python-stitch"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -26,15 +26,15 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src/vitals*"]
+include = ["src/stitch*"]
 
 [tool.pyright]
-include = ["src/vitals"]
+include = ["src/stitch"]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
-    "vitals/experimental",
-    "vitals/typestubs",
+    "stitch/experimental",
+    "stitch/typestubs",
 ]
 venvPath = ".venv"
-venv = "python_tprc"
+venv = "stitch"
