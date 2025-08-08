@@ -1,4 +1,4 @@
-# Stitch
+![Stitch](./assets/stitch.png)
 
 A zero-boilerplate, end-to-end type-safe RPC framework for Python microservices.
 
@@ -6,9 +6,9 @@ Stitch lets you define your service procedures with Python type hints—whether 
 
 ## Features
 
-- **Zero-config introspection**  
+- **Zero-config introspection**
   Expose a `/~stitch` endpoint that publishes your service’s full API shape in JSON Schema.
-- **Multi-model support**  
+- **Multi-model support**
   First-class adapters for `dataclasses`, `attrs`, `msgspec`, and `pydantic`.
 - **More to come**
 
