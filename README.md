@@ -1,4 +1,4 @@
-![Stitch](./assets/stitch.png)
+![Stitch](./assets/stitch-logo.png)
 
 A zero-boilerplate, end-to-end type-safe RPC framework for Python microservices.
 
