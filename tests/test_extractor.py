@@ -19,7 +19,7 @@ class Car(Struct):
 
 
 def test_extract_simple_function():
-    def get_user(user_id: int) -> User: ...  # type: ignore
+    def get_user(user_id: int) -> User: ...  # type: ignor
 
     func_sig = inspect.signature(get_user)
     func_typ = get_type_hints(get_user)
