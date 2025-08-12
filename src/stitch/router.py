@@ -1,6 +1,6 @@
 import inspect
 from collections.abc import Callable
-from typing import get_type_hints
+from typing import get_type_hints, Any
 
 import extractor
 
@@ -9,7 +9,11 @@ class Router:
     def __init__(self):
         self.proc = {}
 
-    def query(self, name: str | None = None):
+    def get_schema(self) -> dict[str, Any]:
+        return {name: {"type": proc["type"], "schema": proc["schema"]}
+                for name, proc in self.proc.items()}
+
+    def query(self, name: str | None = None) -> Callable[[Callable], Callable]:
         """
         Minimal query decorator that:
         1. Registers the function
