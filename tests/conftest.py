@@ -1,6 +1,5 @@
 import pytest
 from pydantic import BaseModel
-from stitch.client import Client, SchemaFetcher
 
 
 class User(BaseModel):
@@ -27,7 +26,7 @@ def mock_schema():
             "schema": {
                 "input": {
                     "properties": {"user_id": {"type": "integer"}},
-                    "required": ["user_id"]
+                    "required": ["user_id"],
                 },
                 "output": {"$ref": "#/defs/User"},
                 "$defs": {
@@ -35,11 +34,11 @@ def mock_schema():
                         "properties": {
                             "id": {"type": "integer"},
                             "name": {"type": "string"},
-                            "age": {"type": "integer"}
+                            "age": {"type": "integer"},
                         },
-                        "required": ["id", "name", "age"]
+                        "required": ["id", "name", "age"],
                     }
-                }
-            }
+                },
+            },
         }
     }

@@ -1,6 +1,6 @@
 import inspect
 from collections.abc import Callable
-from typing import get_type_hints, Any
+from typing import Any, get_type_hints
 
 import extractor
 
@@ -10,8 +10,10 @@ class Router:
         self.proc = {}
 
     def get_schema(self) -> dict[str, Any]:
-        return {name: {"type": proc["type"], "schema": proc["schema"]}
-                for name, proc in self.proc.items()}
+        return {
+            name: {"type": proc["type"], "schema": proc["schema"]}
+            for name, proc in self.proc.items()
+        }
 
     def query(self, name: str | None = None) -> Callable[[Callable], Callable]:
         """

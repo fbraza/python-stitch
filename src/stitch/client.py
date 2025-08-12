@@ -1,8 +1,7 @@
-import requests
-
 from abc import ABC, abstractmethod
 from typing import Any
 
+import requests
 
 TYPE_MAPPING = {
     int: "integer",
@@ -23,7 +22,7 @@ class SchemaFetcher(ABC):
 
 class HTTPSchemaFetcher(SchemaFetcher):
     def fetch(self, base_url: str) -> dict:
-        response = requests.get(f"{base_url}/schema")
+        response = requests.get(f"{base_url}/schema", timeout=30)
         response.raise_for_status()
         return response.json()
 
@@ -34,37 +33,15 @@ class Client:
         self.fetcher = fetcher or HTTPSchemaFetcher()
         self.schema = self.fetch_schema()
 
-    def get(self, endpoint: str, **kwargs):
+    def get(self, endpoint: str, timeout: int = 30, **kwargs: Any):
         schema = self.schema[endpoint]["schema"]
         __input = schema["input"]
-
-        # Check required fields
-        for required_field in __input["required"]:
-            if required_field not in kwargs:
-                msg: str = f"""
-                message   : Missing required field:\n
-                missing   : {required_field}\n
-                expected  : {", ".join(__input["required"])}
-                """
-                raise ValueError(msg)
-
-        # Check required field types
-        to_validate = {
-            param: value for param, value in kwargs.items() 
-            if param in __input["required"]
-        }
-        for param, value in to_validate.items():
-            if TYPE_MAPPING[type(value)] != __input["properties"][param]["type"]:
-                msg: str = f"""
-                message   : Invalid type for field:\n
-                field     : {param}\n
-                expected  : {__input["properties"][param]["type"]}\n
-                received  : {TYPE_MAPPING[type(value)]}
-                """
-                raise ValueError(msg)
+        self.__validate_input(__input, params=kwargs)
 
         # Make the requests
-        response = requests.get(f"{self.base_url}/{endpoint}", params=kwargs)
+        response = requests.get(
+            f"{self.base_url}/{endpoint}", timeout=timeout, params=kwargs
+        )
         data = response.json()
 
         return data
@@ -72,4 +49,37 @@ class Client:
     def fetch_schema(self) -> dict:
         return self.fetcher.fetch(self.base_url)
 
+    def __validate_input(
+        self, schema_for_input: dict[str, Any], params: dict[str, Any]
+    ):
+        """
+        Check required fields and fields types against schema
+        """
+        # Check required fields
+        for required_field in schema_for_input["required"]:
+            if required_field not in params:
+                missing_field_msg: str = f"""
+                message   : Missing required field:\n
+                missing   : {required_field}\n
+                expected  : {", ".join(schema_for_input["required"])}
+                """
+                raise ValueError(missing_field_msg)
 
+        # Check required field types
+        to_validate = {
+            param: value
+            for param, value in params.items()
+            if param in schema_for_input["required"]
+        }
+        for param, value in to_validate.items():
+            if (
+                TYPE_MAPPING[type(value)]
+                != schema_for_input["properties"][param]["type"]
+            ):
+                invalid_type_msg: str = f"""
+                message   : Invalid type for field:\n
+                field     : {param}\n
+                expected  : {schema_for_input["properties"][param]["type"]}\n
+                received  : {TYPE_MAPPING[type(value)]}
+                """
+                raise ValueError(invalid_type_msg)

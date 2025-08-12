@@ -1,5 +1,6 @@
-from stitch.router import Router
 from pydantic import BaseModel
+
+from stitch.router import Router
 
 
 class User(BaseModel):

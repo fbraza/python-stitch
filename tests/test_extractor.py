@@ -1,8 +1,8 @@
 import inspect
 from typing import get_type_hints
 
-from pydantic import BaseModel
 from msgspec import Struct
+from pydantic import BaseModel
 
 from stitch import extractor
 
@@ -19,7 +19,7 @@ class Car(Struct):
 
 
 def test_extract_simple_function():
-    def get_user(user_id: int) -> User: ...  # type: ignor
+    def get_user(user_id: int) -> User: ...  # type: ignore
 
     func_sig = inspect.signature(get_user)
     func_typ = get_type_hints(get_user)
@@ -106,9 +106,7 @@ def test_extract_with_list_msgspec_and_pydantic_as_output():
 
     assert schema == {
         "input": {
-            "properties": {
-                "pattern": {"type": "string"}
-            },
+            "properties": {"pattern": {"type": "string"}},
             "required": ["pattern"],
         },
         "output": {
@@ -116,7 +114,7 @@ def test_extract_with_list_msgspec_and_pydantic_as_output():
             "items": [
                 {"type": "pydantic", "$ref": "#/defs/User"},
                 {"type": "msgspec", "$ref": "#/defs/Car"},
-            ]
+            ],
         },
         "$defs": [
             {
@@ -137,6 +135,6 @@ def test_extract_with_list_msgspec_and_pydantic_as_output():
                     },
                     "required": ["id", "name", "email"],
                 }
-            }
+            },
         ],
     }

@@ -121,7 +121,9 @@ def __collect_list_items_types(
                 output["items"].append({"type": f"{TYPE_MAPPING[obj]}"})
 
 
-def __collect_object_definitions(model_list: list[Any]) -> dict[str, Any] | list[dict[str, Any]]:
+def __collect_object_definitions(
+    model_list: list[Any],
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
     From a list of models (pydantic, msgspec, dataclasses), generate their definitions.
     """
@@ -134,11 +136,14 @@ def __collect_object_definitions(model_list: list[Any]) -> dict[str, Any] | list
         properties, required = collect_properties_and_required(
             sig=model_sig, hints=model_typ
         )
-        defs.append ({ model_to_inspect.__name__: {
-                "properties": properties,
-                "required": required,
+        defs.append(
+            {
+                model_to_inspect.__name__: {
+                    "properties": properties,
+                    "required": required,
+                }
             }
-        })
+        )
 
     if len(defs) == 0:
         return {}

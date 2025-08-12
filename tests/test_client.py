@@ -1,7 +1,8 @@
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, Mock
+
 from stitch.client import Client, SchemaFetcher
-from pydantic import BaseModel
 
 
 class MockSchemaFetcher(SchemaFetcher):
@@ -14,17 +15,17 @@ class MockSchemaFetcher(SchemaFetcher):
 
 def test_client_initialization(mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
-    
+
     assert client.schema == mock_schema
 
 
 def test_fetch_schema(mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
-    
+
     assert client.fetch_schema() == mock_schema
 
 
-@patch('requests.get')
+@patch("requests.get")
 def test_valid_request(mock_get, mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
     mock_get.return_value.json.return_value = {"id": 1, "name": "John", "age": 30}
@@ -35,18 +36,19 @@ def test_valid_request(mock_get, mock_schema):
     assert result["id"] == 1
 
 
-@patch('requests.get')
+@patch("requests.get")
 def test_missing_required_field(mock_get, mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
     mock_get.return_value.json.return_value = mock_schema
-    
+
     with pytest.raises(ValueError, match="Missing required field"):
         client.get("get_user")  # Missing user_id
 
-@patch('requests.get')
+
+@patch("requests.get")
 def test_wrong_type_field(mock_get, mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
     mock_get.return_value.json.return_value = mock_schema
-    
+
     with pytest.raises(ValueError, match="Invalid type for field:"):
         client.get("get_user", user_id="1")  # Wrong user_id type
