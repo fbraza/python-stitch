@@ -1,30 +1,9 @@
-from abc import ABC, abstractmethod
 from typing import Any
 
 import requests
 
-TYPE_MAPPING = {
-    int: "integer",
-    float: "number",
-    str: "string",
-    bool: "boolean",
-    list: "array",
-    dict: "object",
-    Any: "any",
-}
-
-
-class SchemaFetcher(ABC):
-    @abstractmethod
-    def fetch(self, base_url: str) -> dict:
-        pass
-
-
-class HTTPSchemaFetcher(SchemaFetcher):
-    def fetch(self, base_url: str) -> dict:
-        response = requests.get(f"{base_url}/schema", timeout=30)
-        response.raise_for_status()
-        return response.json()
+from stitch.constants import TYPE_MAPPING
+from stitch.fetchers import HTTPSchemaFetcher, SchemaFetcher
 
 
 class Client:

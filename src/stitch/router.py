@@ -2,7 +2,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any, get_type_hints
 
-import extractor
+from stitch import extractor
 
 
 class Router:

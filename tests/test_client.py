@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from stitch.client import Client, SchemaFetcher
+from stitch.client import Client
+from stitch.fetchers import SchemaFetcher
 
 
 class MockSchemaFetcher(SchemaFetcher):

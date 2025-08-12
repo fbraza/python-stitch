@@ -1,17 +1,8 @@
 import inspect
 from typing import Any, get_args, get_origin, get_type_hints
 
-import models
-
-TYPE_MAPPING = {
-    int: "integer",
-    float: "number",
-    str: "string",
-    bool: "boolean",
-    list: "array",
-    dict: "object",
-    Any: "any",
-}
+from stitch import models
+from stitch.constants import TYPE_MAPPING
 
 
 def schemas(sig: inspect.Signature, hints: dict[str, Any]):
