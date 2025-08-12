@@ -1,10 +1,10 @@
-# pyTRPC Specification Document
+# stitch Specification Document
 
-## Project: pyTRPC - Type-Safe RPC for Python Services
+## Project: stitch - Type-Safe RPC for Python Services
 
 ### Executive Summary
 
-pyTRPC is a Python library that enables type-safe RPC between Python services, inspired by TypeScript's tRPC. It automatically extracts type information from Python functions and propagates it to clients, providing runtime validation without manual schema definitions.
+stitch is a Python library that enables type-safe RPC between Python services, inspired by TypeScript's tRPC. It automatically extracts type information from Python functions and propagates it to clients, providing runtime validation without manual schema definitions.
 
 ### Core Design Principles
 
@@ -70,65 +70,81 @@ def create_user(data: CreateUserInput) -> User:
 - [ ] Add `get_schema()` method to return all procedures as JSON
 - [ ] Add error handling for duplicate procedure names
 
-#### Story 1.2: Server Adapter - FastAPI Integration
+#### Story 1.2: Framework Integration with Decorator Stacking
+
 ```python
-# Example usage
-from pytrpc import Router
-from pytrpc.adapters import FastAPIAdapter
+# Example usage - User has full control
+from stitch import Router
 from fastapi import FastAPI
 
+app = FastAPI()
 router = Router()
 
-@router.query()
-def get_user(user_id: int) -> User:
+# User controls the path, middleware, and logic
+@app.get("/api/users/{user_id}")
+@router.query()                      # Just extracts types
+async def get_user(user_id: int) -> User:
     return fetch_user(user_id)
 
-app = FastAPI()
-adapter = FastAPIAdapter(router)
-adapter.attach(app, path="/trpc")
+@app.post("/api/users") 
+@auth_required                       # User's middleware
+@router.mutation()                   # Just extracts types
+async def create_user(data: CreateUserInput) -> User:
+    return save_user(data)
 
-# This should create:
-# GET /trpc/schema - Returns procedure schemas
-# GET /trpc/get_user?user_id=123 - Query endpoint
+# User manually adds schema endpoint wherever they want
+@app.get("/schema")
+def get_schema():
+    return router.get_schema()
 ```
 
 **Tasks:**
-- [ ] Create `adapters/fastapi.py` module
-- [ ] Implement schema endpoint
-- [ ] Map queries to GET endpoints
-- [ ] Map mutations to POST endpoints
-- [ ] Handle parameter extraction and validation
+- [ ] No adapter classes needed - router decorators stack with framework decorators
+- [ ] User manually creates endpoints and adds schema endpoint
+- [ ] Framework agnostic - works with FastAPI, Flask, Django, etc.
 
 ### Epic 2: Client Implementation
-**As a developer, I want to consume pyTRPC services with full type safety and IDE support.**
+**As a developer, I want to consume stitch services with full type safety.**
 
-#### Story 2.1: Basic Python Client
+#### Story 2.1: Basic Python Client with Runtime Validation
 ```python
 # Client usage example
-from pytrpc.client import Client
+from stitch.client import Client
 
-# Initialize client
-client = Client("http://localhost:8000/trpc")
+# Initialize client (fetches schema once)
+client = Client("http://localhost:8000")
 
-# Call procedures with type safety
-user = client.get_user(user_id=123)  # Returns User object
-print(user.name)  # IDE knows about User fields
+# Call procedures with runtime type validation
+user = client.call("get_user", user_id=123)  # ✅ Valid
+print(user["name"])  # Returns dict from JSON response
+
+# Runtime validation examples:
+user = client.call("get_user", user_id="abc")  # ❌ TypeError: user_id must be integer
+user = client.call("get_user")  # ❌ TypeError: Missing required argument: user_id
 ```
 
+**Implementation Approach:**
+The client uses a simple `call()` method that:
+1. Validates input parameters against the server's schema
+2. Makes the appropriate HTTP request (GET for queries, POST for mutations)
+3. Validates the response against the output schema
+4. Returns the validated response data
+
 **Tasks:**
-- [ ] Create `client.py` module
+- [ ] Create `client.py` module with `call()` method
 - [ ] Fetch schema from server on initialization
-- [ ] Create dynamic methods for each procedure
-- [ ] Implement request/response handling
-- [ ] Add error handling and retries
+- [ ] Implement input validation against schema
+- [ ] Implement output validation against schema
+- [ ] Add proper error messages for validation failures
+- [ ] Support both query (GET) and mutation (POST) procedures
 
 #### Story 2.2: Type Stub Generation
 ```python
 # Generate .pyi files for IDE support
-from pytrpc.client import Client
-from pytrpc.stubs import generate_stubs
+from stitch.client import Client
+from stitch.stubs import generate_stubs
 
-client = Client("http://localhost:8000/trpc")
+client = Client("http://localhost:8000")
 generate_stubs(client, "./types/api.pyi")
 
 # Now IDE has full type hints for all procedures
@@ -139,6 +155,7 @@ generate_stubs(client, "./types/api.pyi")
 - [ ] Parse schema to generate type hints
 - [ ] Write .pyi files with proper imports
 - [ ] Support for model type references
+
 ### Epic 3: Enhanced Type Support
 **As a developer, I want to use complex Python types in my RPC procedures.**
 
@@ -198,10 +215,10 @@ src/stitch/
 def mutation(self, name: str | None = None):
     def decorator(func: Callable) -> Callable:
         proc_name = name or func.__name__
-        
+
         type_hints = get_type_hints(func)
         sig = inspect.signature(func)
-        
+
         self.proc[proc_name] = {
             "type": "mutation",
             "handler": func,
@@ -209,9 +226,9 @@ def mutation(self, name: str | None = None):
             "type_hints": type_hints,
             "schema": extractor.schemas(sig=sig, hints=type_hints),
         }
-        
+
         return func
-    
+
     return decorator
 ```
 
@@ -224,96 +241,140 @@ def get_schema(self) -> dict:
         "procedures": {},
         "models": {}
     }
-    
+
     for name, proc in self.proc.items():
         schema["procedures"][name] = {
             "type": proc["type"],
             "schema": proc["schema"]
         }
-    
+
     # TODO: Collect all referenced models
     return schema
 ```
 
-#### 3. FastAPI Adapter Implementation
-```python
-# New file: adapters/fastapi.py
-from fastapi import FastAPI, Query, Body
-from typing import Any, Dict
-import json
+#### 3. Framework Integration (No Adapter Needed)
 
-class FastAPIAdapter:
-    def __init__(self, router):
-        self.router = router
-    
-    def attach(self, app: FastAPI, path: str = "/trpc"):
-        """Attach router to FastAPI app."""
-        
-        @app.get(f"{path}/schema")
-        async def get_schema():
-            return self.router.get_schema()
-        
-        # Register each procedure
-        for name, proc in self.router.proc.items():
-            if proc["type"] == "query":
-                self._register_query(app, path, name, proc)
-            elif proc["type"] == "mutation":
-                self._register_mutation(app, path, name, proc)
-    
-    def _register_query(self, app, path, name, proc):
-        handler = proc["handler"]
-        
-        @app.get(f"{path}/{name}")
-        async def query_endpoint(**kwargs):
-            # Call the original handler with query params
-            result = handler(**kwargs)
-            return {"result": result}
-        
-        return query_endpoint
+The router works by stacking decorators - no complex adapter classes:
+
+```python
+# User has full control over their endpoints
+from stitch import Router
+from fastapi import FastAPI
+
+app = FastAPI()
+router = Router()
+
+# Stack decorators - router just extracts types
+@app.get("/api/users/{user_id}")
+@router.query()
+async def get_user(user_id: int) -> User:
+    return fetch_user(user_id)
+
+# Works with any middleware or decorators
+@app.post("/api/users")
+@auth_middleware
+@validate_json
+@router.mutation()
+async def create_user(data: CreateUserInput) -> User:
+    return save_user(data)
+
+# User manually adds schema endpoint
+@app.get("/schema")
+def schema():
+    return router.get_schema()
 ```
 
-#### 4. Basic Client Implementation
+#### 4. Basic Client Implementation with Runtime Validation
 ```python
 # New file: client.py
-import httpx
+import requests
+import jsonschema
 from typing import Any, Dict
 
 class Client:
     def __init__(self, base_url: str):
         self.base_url = base_url
         self.schema = self._fetch_schema()
-        self._build_methods()
-    
+
     def _fetch_schema(self) -> dict:
         """Fetch schema from server."""
-        response = httpx.get(f"{self.base_url}/schema")
+        response = requests.get(f"{self.base_url}/schema")
         return response.json()
-    
-    def _build_methods(self):
-        """Create methods for each procedure."""
-        for name, proc in self.schema["procedures"].items():
-            if proc["type"] == "query":
-                setattr(self, name, self._create_query(name, proc))
-            elif proc["type"] == "mutation":
-                setattr(self, name, self._create_mutation(name, proc))
-    
-    def _create_query(self, name: str, proc: dict):
-        def query(**kwargs):
-            response = httpx.get(
-                f"{self.base_url}/{name}",
+
+    def call(self, method: str, **kwargs) -> dict:
+        """Call a remote procedure with runtime type validation."""
+        if method not in self.schema["procedures"]:
+            raise ValueError(f"Unknown procedure: {method}")
+
+        proc_info = self.schema["procedures"][method]
+        proc_schema = proc_info["schema"]
+
+        # 1. Validate input against schema
+        self._validate_input(method, kwargs, proc_schema["input"])
+
+        # 2. Make HTTP request based on procedure type
+        if proc_info["type"] == "query":
+            response = requests.get(
+                f"{self.base_url}/{method}",
                 params=kwargs
             )
-            return response.json()["result"]
-        return query
-    
-    def _create_mutation(self, name: str, proc: dict):
-        def mutation(**kwargs):
-            response = httpx.post(
-                f"{self.base_url}/{name}",
+        else:  # mutation
+            response = requests.post(
+                f"{self.base_url}/{method}",
                 json=kwargs
             )
-            return response.json()["result"]
-        return mutation
+
+        data = response.json()
+
+        # 3. Validate output against schema
+        self._validate_output(method, data, proc_schema)
+
+        return data["result"] if "result" in data else data
+
+    def _validate_input(self, method: str, kwargs: dict, input_schema: dict):
+        """Validate input parameters against schema."""
+        # Check required fields
+        for required_field in input_schema.get("required", []):
+            if required_field not in kwargs:
+                raise TypeError(f"{method}: Missing required argument: {required_field}")
+
+        # Check types
+        for field, value in kwargs.items():
+            if field in input_schema["properties"]:
+                expected_type = input_schema["properties"][field]["type"]
+                if not self._check_type(value, expected_type):
+                    raise TypeError(f"{method}: {field} must be {expected_type}")
+
+    def _validate_output(self, method: str, data: dict, proc_schema: dict):
+        """Validate response data against output schema."""
+        output_schema = proc_schema.get("output", {})
+
+        if "$ref" in output_schema:
+            # Validate against model definition
+            model_name = output_schema["$ref"].split("/")[-1]
+            if "$defs" in proc_schema and model_name in proc_schema["$defs"]:
+                model_schema = proc_schema["$defs"][model_name]
+                try:
+                    jsonschema.validate(data.get("result", data), {
+                        "type": "object",
+                        "properties": model_schema["properties"],
+                        "required": model_schema.get("required", [])
+                    })
+                except jsonschema.ValidationError as e:
+                    raise ValueError(f"{method}: Invalid response - {e.message}")
+
+    def _check_type(self, value: Any, expected: str) -> bool:
+        """Check if value matches expected type."""
+        type_map = {
+            "integer": int,
+            "string": str,
+            "boolean": bool,
+            "number": (int, float),
+            "array": list,
+            "object": dict
+        }
+        expected_type = type_map.get(expected, object)
+        return isinstance(value, expected_type)
 ```
 
 ## Example Usage - Complete Working Example
@@ -322,11 +383,10 @@ class Client:
 
 ```python
 # server.py
-from pytrpc import Router
-from pytrpc.adapters import FastAPIAdapter
+from stitch import Router
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 # Define models
 class User(BaseModel):
@@ -339,12 +399,14 @@ class CreateUserInput(BaseModel):
     name: str
     email: str
 
-# Create router
+# Create router and app
 router = Router()
+app = FastAPI()
 
-# Define procedures
+# Define endpoints with decorator stacking
+@app.get("/api/users/{user_id}")
 @router.query()
-def get_user(user_id: int) -> User:
+async def get_user(user_id: int) -> User:
     # Fetch from database
     return User(
         id=user_id,
@@ -352,16 +414,18 @@ def get_user(user_id: int) -> User:
         email="john@example.com"
     )
 
+@app.get("/api/users")
 @router.query()
-def list_users(limit: int = 10, offset: int = 0) -> List[User]:
+async def list_users(limit: int = 10, offset: int = 0) -> List[User]:
     # Query database
     return [
         User(id=1, name="John", email="john@example.com"),
         User(id=2, name="Jane", email="jane@example.com")
     ]
 
+@app.post("/api/users")
 @router.mutation()
-def create_user(data: CreateUserInput) -> User:
+async def create_user(data: CreateUserInput) -> User:
     # Save to database
     return User(
         id=3,
@@ -369,10 +433,10 @@ def create_user(data: CreateUserInput) -> User:
         email=data.email
     )
 
-# Create FastAPI app
-app = FastAPI()
-adapter = FastAPIAdapter(router)
-adapter.attach(app, path="/trpc")
+# User manually adds schema endpoint wherever they want
+@app.get("/schema")
+def get_schema():
+    return router.get_schema()
 
 # Run with: uvicorn server:app
 ```
@@ -380,24 +444,34 @@ adapter.attach(app, path="/trpc")
 ### Client Code
 ```python
 # client.py
-from pytrpc.client import Client
+from stitch.client import Client
 
-# Connect to server
-client = Client("http://localhost:8000/trpc")
+# Connect to server (fetches schema once)
+client = Client("http://localhost:8000")
 
-# Call procedures with type safety
-user = client.get_user(user_id=1)
-print(f"User: {user['name']} ({user['email']})")
+# Call procedures with runtime validation
+try:
+    # Valid calls - pass validation
+    user = client.call("get_user", user_id=1)
+    print(f"User: {user['name']} ({user['email']})")
 
-users = client.list_users(limit=5)
-for u in users:
-    print(f"- {u['name']}")
+    users = client.call("list_users", limit=5, offset=0)
+    for u in users:
+        print(f"- {u['name']}")
 
-new_user = client.create_user(data={
-    "name": "Alice",
-    "email": "alice@example.com"
-})
-print(f"Created user: {new_user['id']}")
+    new_user = client.call("create_user", data={
+        "name": "Alice",
+        "email": "alice@example.com"
+    })
+    print(f"Created user: {new_user['id']}")
+
+    # Invalid calls - caught by runtime validation
+    user = client.call("get_user", user_id="invalid")  # TypeError: user_id must be integer
+
+except TypeError as e:
+    print(f"Validation error: {e}")
+except ValueError as e:
+    print(f"Response validation error: {e}")
 ```
 
 ## Implementation Priority
@@ -410,17 +484,17 @@ print(f"Created user: {new_user['id']}")
    - [ ] Mutation decorator
    - [ ] get_schema() method
 
-2. **FastAPI Adapter**
-   - [ ] Create adapters/fastapi.py
-   - [ ] Schema endpoint
-   - [ ] Query/Mutation endpoints
-   - [ ] Parameter extraction
+2. **Framework Integration**
+   - [ ] No adapter classes needed - decorators stack naturally
+   - [ ] User creates their own endpoints and schema endpoint  
+   - [ ] Test decorator stacking with FastAPI/Flask
 
 3. **Basic Client**
-   - [ ] Create client.py
-   - [ ] Schema fetching
-   - [ ] Dynamic method creation
-   - [ ] HTTP requests (GET/POST)
+   - [ ] Create client.py with `call()` method
+   - [ ] Schema fetching on initialization
+   - [ ] Input validation against schema
+   - [ ] Output validation against schema
+   - [ ] HTTP requests (GET for queries, POST for mutations)
 
 4. **Testing**
    - [ ] Unit tests for extractor
@@ -448,10 +522,10 @@ print(f"Created user: {new_user['id']}")
 ### Phase 3: Production Ready (Week 5-6)
 **Goal: Production features**
 
-1. **Additional Adapters**
-   - [ ] Flask adapter
-   - [ ] Django adapter
-   - [ ] Standalone ASGI/WSGI
+1. **Framework Examples**
+   - [ ] Flask decorator stacking example
+   - [ ] Django decorator stacking example
+   - [ ] Documentation for different frameworks
 
 2. **Advanced Features**
    - [ ] Middleware support
@@ -526,9 +600,9 @@ Use JSON Schema format for maximum compatibility:
        return {"procedures": self.proc}
    ```
 
-3. **Create FastAPI adapter** (new file: adapters/fastapi.py)
-   - Start with the basic implementation shown above
-   - Test with a simple FastAPI app
+3. **Test framework integration**
+   - Test decorator stacking with FastAPI
+   - Test decorator stacking with Flask
 
 4. **Create basic client** (new file: client.py)
    - Start with synchronous version using requests/httpx
@@ -540,15 +614,12 @@ Use JSON Schema format for maximum compatibility:
 
 ```
 src/
-├── stitch/              # Rename to pytrpc later
+├── stitch/              
 │   ├── __init__.py
 │   ├── router.py        # ✅ Exists - needs mutation & get_schema
 │   ├── extractor.py     # ✅ Exists - works well
 │   ├── models.py        # ✅ Exists - works well
-│   ├── client.py        # ❌ TODO - Create this
-│   └── adapters/        # ❌ TODO - Create this
-│       ├── __init__.py
-│       └── fastapi.py
+│   └── client.py        # ❌ TODO - Create this
 └── tests/               # ❌ TODO - Add tests
     ├── test_router.py
     ├── test_extractor.py
@@ -557,7 +628,7 @@ src/
 
 ## Summary
 
-pyTRPC is a pragmatic implementation of type-safe RPC for Python, focusing on:
+stitch is a pragmatic implementation of type-safe RPC for Python, focusing on:
 
 1. **Simple, working code** over complex abstractions
 2. **Incremental implementation** - start with MVP, add features as needed
