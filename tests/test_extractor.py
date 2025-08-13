@@ -18,7 +18,7 @@ class Car(Struct):
     engine: str
 
 
-def test_extract_simple_function():
+def test_extract_simple_query_function():
     def get_user(user_id: int) -> User: ...  # type: ignore
 
     func_sig = inspect.signature(get_user)
@@ -31,7 +31,7 @@ def test_extract_simple_function():
             "properties": {"user_id": {"type": "integer"}},
             "required": ["user_id"],
         },
-        "output": {"$ref": "#/defs/User"},
+        "output": {"$ref": "#/defs/User", "type": "pydantic"},
         "$defs": {
             "User": {
                 "properties": {
@@ -42,6 +42,58 @@ def test_extract_simple_function():
                 "required": ["id", "name", "email"],
             }
         },
+    }
+
+
+def test_extract_simple_mutation_function():
+    def create_user(name: str, email: str) -> User: ...  # type: ignore
+
+    func_sig = inspect.signature(create_user)
+    func_typ = get_type_hints(create_user)
+
+    schema = extractor.schemas(sig=func_sig, hints=func_typ)
+
+    assert schema == {
+        "input": {
+            "properties": {
+                "name": {"type": "string"},
+                "email": {"type": "string"},
+            },
+            "required": ["name", "email"],
+        },
+        "output": {"$ref": "#/defs/User", "type": "pydantic"},
+        "$defs": {
+            "User": {
+                "properties": {
+                    "id": {"type": "integer"},
+                    "name": {"type": "string"},
+                    "email": {"type": "string"},
+                },
+                "required": ["id", "name", "email"],
+            }
+        },
+    }
+
+
+def test_extract_simple_mutation_function_without_return():
+    def add_user(user_id: int, name: str, email: str) -> None: ...  # type: ignore
+
+    func_sig = inspect.signature(add_user)
+    func_typ = get_type_hints(add_user)
+
+    schema = extractor.schemas(sig=func_sig, hints=func_typ)
+
+    assert schema == {
+        "input": {
+            "properties": {
+                "user_id": {"type": "integer"},
+                "name": {"type": "string"},
+                "email": {"type": "string"},
+            },
+            "required": ["user_id", "name", "email"],
+        },
+        "output": {"items": {"type": "null"}},
+        "$defs": {},
     }
 
 

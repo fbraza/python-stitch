@@ -67,6 +67,7 @@ def collect_type_refs_and_defs(return_type: Any):
     if models.inspect(return_type) is not None:
         model_list.append(return_type)
         output["$ref"] = f"#/defs/{return_type.__name__}"
+        output["type"] = f"{models.inspect(return_type)}"
     elif get_origin(return_type) is list:
         __collect_list_items_types(output, model_list, return_type)
     else:
@@ -81,11 +82,11 @@ def __collect_list_items_types(
     output: dict[str, Any], model_list: list[Any], return_type: Any
 ):
     output["type"] = "array"
-    generic = get_args(return_type)
+    __list = get_args(return_type)
 
-    if len(generic) == 1:
+    if len(__list) == 1:
         # check if type is pydantic class
-        obj = generic[0]
+        obj = __list[0]
         which_model = models.inspect(obj)
         if which_model is not None:
             model_list.append(obj)
@@ -96,9 +97,9 @@ def __collect_list_items_types(
         # if no pydantic model we just map the std types
         else:
             output["items"] = {"type": f"{TYPE_MAPPING[obj]}"}
-    elif len(generic) > 1:
+    elif len(__list) > 1:
         output["items"] = []
-        for obj in generic:
+        for obj in __list:
             which_model = models.inspect(obj)
             if which_model is not None:
                 model_list.append(obj)

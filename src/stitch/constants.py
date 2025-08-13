@@ -15,5 +15,6 @@ TYPE_MAPPING = {
     bool: "boolean",
     list: "array",
     dict: "object",
+    None.__class__: "null",
     Any: "any",
 }

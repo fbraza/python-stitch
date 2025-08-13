@@ -22,7 +22,7 @@ def test_router_query():
             "properties": {"user_id": {"type": "integer"}},
             "required": ["user_id"],
         },
-        "output": {"$ref": "#/defs/User"},
+        "output": {"$ref": "#/defs/User", "type": "pydantic"},
         "$defs": {
             "User": {
                 "properties": {
