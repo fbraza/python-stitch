@@ -6,15 +6,16 @@ from stitch import extractor
 
 
 class BaseRouterError(Exception):
-    """Base error class for Etherscan errors"""
+    """Base error class for Router errors"""
 
 
 class DuplicateProcedureError(BaseRouterError):
-    def __init__(self, proc: dict[str, Any], proc_name: str):
+    def __init__(self, proc: dict[str, Any], proc_name: str, type: str):
         msg: str = f"""
         message : Duplicate procedure name\n
-        procedure: {proc_name} already exists\n
-        expected: not in {proc.keys()}
+        procedure: '{proc_name}' already exists\n
+        type: procedure of type '{type}'\n
+        expected: not in '{proc.keys()}'
         """
         super(BaseRouterError, self).__init__(msg)
 
@@ -57,7 +58,9 @@ class Router:
             proc_name = name or func.__name__
 
             if proc_name in self.proc.keys():
-                raise DuplicateProcedureError(proc=self.proc, proc_name=proc_name)
+                raise DuplicateProcedureError(
+                    proc=self.proc, proc_name=proc_name, type=type
+                )
 
             # Extract type information
             type_hints = get_type_hints(func)
