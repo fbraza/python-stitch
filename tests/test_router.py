@@ -35,7 +35,7 @@ def test_router_query():
     }
 
 
-def test_raise_for_duplciated_procs():
+def test_raise_for_duplicated_procs():
     router = Router()
 
     @router.query("get_user")
