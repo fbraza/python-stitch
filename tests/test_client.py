@@ -32,9 +32,9 @@ def test_valid_request(mock_get, mock_schema):
     mock_get.return_value.json.return_value = {"id": 1, "name": "John", "age": 30}
     result = client.call("get_user", user_id=1)
 
-    assert result["name"] == "John"
-    assert result["age"] == 30
-    assert result["id"] == 1
+    assert result.json()["name"] == "John"
+    assert result.json()["age"] == 30
+    assert result.json()["id"] == 1
 
 
 @patch("requests.get")
@@ -88,4 +88,20 @@ def test_working_http_query(live_server):
     client = Client(live_server, HTTPSchemaFetcher())
     response = client.call(procedure="get_user", user_id=1)
 
-    assert response == {"id": 1, "name": "John Doe", "age": 30}
+    assert response.json() == {"id": 1, "name": "John Doe", "age": 30}
+
+
+def test_should_return_422_for_incorrect_pydantic_model(
+    live_server_with_unsyced_return,
+):
+    client = Client(live_server_with_unsyced_return, HTTPSchemaFetcher())
+    response = client.call(procedure="get_car", matriculation="0000")
+
+    assert response.status_code == 422
+
+
+def test_should_return_422_for_unsynced_model(live_server_with_unsyced_schema):
+    client = Client(live_server_with_unsyced_schema, HTTPSchemaFetcher())
+    response = client.call(procedure="get_car", matriculation="0000")
+
+    assert response.status_code == 422

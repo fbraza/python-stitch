@@ -3,7 +3,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, get_type_hints
 
-from pydantic import create_model
+from pydantic import ValidationError
+from starlette.responses import JSONResponse
 
 from stitch import extractor
 
@@ -60,7 +61,6 @@ class Router:
 
         def __decorator(func: Callable) -> Callable:
             proc_name = name or func.__name__
-
             if proc_name in self.proc.keys():
                 raise DuplicateProcedureError(
                     proc=self.proc, proc_name=proc_name, type=type
@@ -69,10 +69,8 @@ class Router:
             # Extract type information
             type_hints = get_type_hints(func)
             sig = inspect.signature(func)
-
             self.proc[proc_name] = {
                 "type": type,
-                "handler": func,
                 "signature": sig,
                 "type_hints": type_hints,
                 "schema": extractor.schemas(sig=sig, hints=type_hints),
@@ -80,19 +78,36 @@ class Router:
 
             @wraps(func)
             def wrapper(*args, **kwargs):
-                result = func(*args, **kwargs)
+                try:
+                    result = func(*args, **kwargs)
+                    if self.proc[proc_name]["schema"]["output"]["type"] == "pydantic":
+                        for model in self.proc[proc_name]["schema"]["$defs"]:
+                            expected = sorted(
+                                self.proc[proc_name]["schema"]["$defs"][model][
+                                    "properties"
+                                ].keys()
+                            )
+                            current = sorted(result.model_dump().keys())
+                            if expected != current:
+                                return JSONResponse(
+                                    status_code=422,
+                                    content={
+                                        "message": "Schema of your pydantic object is incorrect",
+                                        # "expected_fields": expected,
+                                        # "actual_fields": current
+                                    },
+                                )
+                    return result
+                except ValidationError as err:
+                    return JSONResponse(
+                        status_code=422,
+                        content={
+                            "message": "Pydantic validation error",
+                            "errors": str(err),
+                        },
+                    )
 
-                if self.proc[proc_name]["output"]["type"] == "pydantic":
-                    for model in self.proc[proc_name]["output"]["$defs"]:
-                        if sorted(result.keys()) != sorted(
-                            self.proc[proc_name]["output"]["$defs"][model].keys()
-                        ):
-                            raise ValueError
-
-                        create_model(model, **result)
-
-                return result
-
-            return func
+            self.proc[proc_name]["handler"] = wrapper
+            return wrapper
 
         return __decorator

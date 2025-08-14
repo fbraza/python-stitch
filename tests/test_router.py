@@ -13,7 +13,8 @@ def test_router_query():
     router = Router()
 
     @router.query()
-    def get_user(user_id: int) -> User: ...  # type: ignore
+    def get_user(user_id: int) -> User:
+        return User(name="John Doe", age=30)
 
     assert router.proc["get_user"]["handler"] == get_user
     assert router.proc["get_user"]["type"] == "query"

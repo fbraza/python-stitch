@@ -57,7 +57,7 @@ class Client:
         if response is None:
             raise ValueError("Invalid procedure type")
 
-        return response.json()
+        return response
 
     def fetch_schema(self) -> dict:
         return self.fetcher.fetch(self.base_url)
