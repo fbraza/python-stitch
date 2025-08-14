@@ -6,6 +6,31 @@ from stitch.constants import TYPE_MAPPING
 from stitch.fetchers import HTTPSchemaFetcher, SchemaFetcher
 
 
+class BaseInputValidationError(Exception):
+    """Base error class for Router errors"""
+
+
+class RequiredFieldMissing(BaseInputValidationError):
+    def __init__(self, required_field: str, schema_for_input: dict[str, Any]):
+        msg: str = f"""
+        message   : Missing required field:\n
+        missing   : {required_field}\n
+        expected  : {", ".join(schema_for_input["required"])}
+        """
+        super(BaseInputValidationError, self).__init__(msg)
+
+
+class FieldTypeError(BaseInputValidationError):
+    def __init__(self, param: str, schema_for_input: dict[str, Any], value: Any):
+        msg: str = f"""
+        message   : Invalid type for field:\n
+        field     : {param}\n
+        expected  : {schema_for_input["properties"][param]["type"]}\n
+        received  : {TYPE_MAPPING[type(value)]}
+        """
+        super().__init__(msg)
+
+
 class Client:
     def __init__(self, base_url: str, fetcher: SchemaFetcher | None = None):
         self.base_url = base_url.rstrip("/")
@@ -46,12 +71,9 @@ class Client:
         # Check required fields
         for required_field in schema_for_input["required"]:
             if required_field not in params:
-                missing_field_msg: str = f"""
-                message   : Missing required field:\n
-                missing   : {required_field}\n
-                expected  : {", ".join(schema_for_input["required"])}
-                """
-                raise ValueError(missing_field_msg)
+                raise RequiredFieldMissing(
+                    required_field=required_field, schema_for_input=schema_for_input
+                )
 
         # Check required field types
         to_validate = {
@@ -64,10 +86,6 @@ class Client:
                 TYPE_MAPPING[type(value)]
                 != schema_for_input["properties"][param]["type"]
             ):
-                invalid_type_msg: str = f"""
-                message   : Invalid type for field:\n
-                field     : {param}\n
-                expected  : {schema_for_input["properties"][param]["type"]}\n
-                received  : {TYPE_MAPPING[type(value)]}
-                """
-                raise ValueError(invalid_type_msg)
+                raise FieldTypeError(
+                    param=param, schema_for_input=schema_for_input, value=value
+                )

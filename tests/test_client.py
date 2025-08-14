@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from stitch.client import Client
+from stitch.client import Client, FieldTypeError, RequiredFieldMissing
 from stitch.fetchers import HTTPSchemaFetcher, SchemaFetcher
 
 
@@ -42,7 +42,7 @@ def test_missing_required_field(mock_get, mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
     mock_get.return_value.json.return_value = mock_schema
 
-    with pytest.raises(ValueError, match="Missing required field"):
+    with pytest.raises(RequiredFieldMissing, match="Missing required field"):
         client.call("get_user")  # Missing user_id
 
 
@@ -51,7 +51,7 @@ def test_wrong_type_field(mock_get, mock_schema):
     client = Client("http://localhost:8000", MockSchemaFetcher(mock_schema))
     mock_get.return_value.json.return_value = mock_schema
 
-    with pytest.raises(ValueError, match="Invalid type for field:"):
+    with pytest.raises(FieldTypeError, match="Invalid type for field:"):
         client.call("get_user", user_id="1")  # Wrong user_id type
 
 

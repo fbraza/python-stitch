@@ -1,6 +1,9 @@
 import inspect
 from collections.abc import Callable
+from functools import wraps
 from typing import Any, get_type_hints
+
+from pydantic import create_model
 
 from stitch import extractor
 
@@ -74,6 +77,21 @@ class Router:
                 "type_hints": type_hints,
                 "schema": extractor.schemas(sig=sig, hints=type_hints),
             }
+
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+
+                if self.proc[proc_name]["output"]["type"] == "pydantic":
+                    for model in self.proc[proc_name]["output"]["$defs"]:
+                        if sorted(result.keys()) != sorted(
+                            self.proc[proc_name]["output"]["$defs"][model].keys()
+                        ):
+                            raise ValueError
+
+                        create_model(model, **result)
+
+                return result
 
             return func
 
