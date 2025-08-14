@@ -12,18 +12,27 @@ class Client:
         self.fetcher = fetcher or HTTPSchemaFetcher()
         self.schema = self.fetch_schema()
 
-    def get(self, endpoint: str, timeout: int = 30, **kwargs: Any):
-        schema = self.schema[endpoint]["schema"]
-        __input = schema["input"]
-        self.__validate_input(__input, params=kwargs)
+    def call(self, procedure: str, timeout: int = 30, **kwargs: Any):
+        schema: dict[str, Any] = self.schema[procedure]["schema"]
+        self.__validate_input(schema["input"], params=kwargs)
 
-        # Make the requests
-        response = requests.get(
-            f"{self.base_url}/{endpoint}", timeout=timeout, params=kwargs
-        )
-        data = response.json()
+        response: requests.Response | None = None
+        type: str = self.schema[procedure]["type"]
 
-        return data
+        if type == "query":
+            response = requests.get(
+                f"{self.base_url}/{procedure}", timeout=timeout, params=kwargs
+            )
+
+        if type == "mutation":
+            response = requests.post(
+                f"{self.base_url}/{procedure}", timeout=timeout, json=kwargs
+            )
+
+        if response is None:
+            raise ValueError("Invalid procedure type")
+
+        return response.json()
 
     def fetch_schema(self) -> dict:
         return self.fetcher.fetch(self.base_url)

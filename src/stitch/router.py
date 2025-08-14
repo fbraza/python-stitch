@@ -27,7 +27,8 @@ class Router:
     def get_schema(self) -> dict[str, Any]:
         if self.proc:
             return {
-                name: {"schema": proc["schema"]} for name, proc in self.proc.items()
+                name: {"type": proc["type"], "schema": proc["schema"]}
+                for name, proc in self.proc.items()
             }
 
         return self.proc
