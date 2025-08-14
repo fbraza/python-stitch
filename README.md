@@ -2,79 +2,67 @@
 
 A type-safe RPC framework for Python that automatically generates JSON schemas from function signatures.
 
-Stitch lets you define API procedures with Python type hints—whether you use `dataclasses`, `attrs`, `msgspec.Struct`, or `pydantic.BaseModel`—and automatically generates schemas for client validation and introspection. The client validates inputs against these schemas before making requests, providing type safety and clear error messages.
+Stitch lets you define API procedures with Python type hints and automatically generates schemas for client validation and introspection. The client validates inputs against these schemas before making requests, providing type safety and clear error messages. Right now it is working as a MVP with only Pydantic models. (will add `dataclasses` and  `msgspec.Struct`)
 
 ## Features
 
-- **Automatic schema generation** from Python function signatures and type hints
-- **Multi-model support** - works with `dataclasses`, `attrs`, `msgspec`, and `pydantic`
-- **Input validation** - client validates parameters before making requests
-- **Type-safe client** - prevents invalid API calls with runtime checks
-- **Simple decorator-based API** - define procedures with `@query` and `@mutation`
+- **Automatic schema generation**
+- **Auto-mounting endpoints** - No manual FastAPI route wiring required
+- **Pydantic model support**
+- **Input validation**
+- **Type-safe client**
+- **Simple decorator-based API**
 
 ## Current State (MVP)
 
 This is a working MVP that provides:
 - Router with decorators for defining procedures
+- **Auto-mounting of endpoints** - Zero FastAPI boilerplate
 - Schema extraction from function signatures
 - Type-safe HTTP client with validation
-- Support for complex return types and nested models
+- Support for complex return types and nested pydantic models (list[Model] only)
 
 ## Usage
 
-### 1. Define API procedures with Router
+### Implement your server
 
 ```python
-from dataclasses import dataclass
+from pydantic import BaseModel
+from fastapi import FastAPI
 from stitch.router import Router
 
 router = Router()
+app = FastAPI()
 
-@dataclass
-class User:
+class User(BaseModel):
     id: int
     name: str
     email: str
 
+# Define procedures with router decorators only
 @router.query()
 def get_user(user_id: int) -> User:
     # Your implementation here
     return User(id=user_id, name="Alice", email="alice@example.com")
-
-@router.query()
-def search_users(query: str, limit: int = 10) -> list[User]:
-    # Your implementation here
-    return [User(id=1, name="Alice", email="alice@example.com")]
 
 @router.mutation()
 def create_user(name: str, email: str) -> User:
     # Your implementation here
     return User(id=123, name=name, email=email)
 
-# Get the generated schema
-schema = router.get_schema()
-```
-
-### 2. Expose schema endpoint in your web framework
-
-The router generates a schema that needs to be exposed at a `/schema` endpoint:
-
-```python
-# FastAPI example
-from fastapi import FastAPI
-
-app = FastAPI()
-
+# Expose schema endpoint
 @app.get("/schema")
 def get_schema():
     return router.get_schema()
 
-@app.get("/users/{user_id}")
-def get_user_endpoint(user_id: int):
-    return router.proc["get_user"]["handler"](user_id=user_id)
+# 🚀 Auto-mount all procedures as endpoints!
+router.mount(app)
+# This automatically creates:
+# GET /get_user?user_id=42
+# POST /create_user (JSON body: {"name": "...", "email": "..."})
 ```
 
-### 3. Use the type-safe client
+### 2. Use the type-safe client
 
 ```python
 from stitch.client import Client
@@ -82,20 +70,9 @@ from stitch.client import Client
 # Create client with base URL
 client = Client("http://localhost:8000")
 
-# Client fetches schema and validates inputs
-try:
-    # This validates that user_id is an integer and is required
-    user = client.get("get_user", user_id=42)
-    print(f"User: {user['name']}")
-
-    # This would raise ValueError for missing required field
-    # user = client.get("get_user")  # Missing user_id
-
-    # This would raise ValueError for wrong type
-    # user = client.get("get_user", user_id="invalid")  # user_id must be int
-
-except ValueError as e:
-    print(f"Validation error: {e}")
+user_01 = client.call("get_user", user_id=42) # :white_check_mark: this works
+user_02 = client.call("get_user", user_id=42, age=25) # :x: will raise an error
+user_02 = client.call("get_user", user_id="42") # :x: will raise an error
 ```
 
 ## Schema Example
@@ -135,10 +112,7 @@ The router automatically generates JSON schemas like this:
 
 Stitch automatically detects and works with:
 
-- **dataclasses** - `@dataclass` decorated classes
 - **Pydantic** - v1 and v2 models with `model_fields` or `__fields__`
-- **msgspec** - classes with `__struct_fields__`
-- **attrs** - classes with `__attrs_attrs__`
 
 ## Installation
 
@@ -154,3 +128,4 @@ Future enhancements planned:
 - WebSocket procedures
 - Auto-generated typed stubs
 - Advanced schema validation features
+- Add support for `msgspec`, `dataclass`

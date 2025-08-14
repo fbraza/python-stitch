@@ -60,7 +60,6 @@ def server():
     router = Router()
     app = FastAPI()
 
-    @app.get("/get_user")
     @router.query(name="get_user")
     def get_user(user_id: int) -> User:
         return User(id=user_id, name="John", age=30)
@@ -68,6 +67,8 @@ def server():
     @app.get("/schema")
     def schema() -> dict:
         return router.get_schema()
+
+    router.mount(app)
 
     client = TestClient(app)
     yield client
@@ -81,7 +82,6 @@ def live_server():
     router = Router()
     app = FastAPI()
 
-    @app.get("/get_user")
     @router.query(name="get_user")
     def get_user(user_id: int) -> User:
         return User(id=user_id, name="John Doe", age=30)
@@ -89,6 +89,8 @@ def live_server():
     @app.get("/schema")
     def schema() -> dict:
         return router.get_schema()
+
+    router.mount(app)
 
     import uvicorn
 
@@ -118,7 +120,6 @@ def live_server_with_unsyced_return():
     router = Router()
     app = FastAPI()
 
-    @app.get("/get_car")
     @router.query(name="get_car")
     def get_car(matriculation: str) -> Car:
         return Car(matriculation="0000", model="Renault")  # type: ignore
@@ -126,6 +127,8 @@ def live_server_with_unsyced_return():
     @app.get("/schema")
     def schema() -> dict:
         return router.get_schema()
+
+    router.mount(app)
 
     import uvicorn
 
@@ -155,7 +158,6 @@ def live_server_with_unsyced_schema():
     router = Router()
     app = FastAPI()
 
-    @app.get("/get_car")
     @router.query(name="get_car")
     def get_car(matriculation: str) -> Car:
         return Car(matriculation="0000", model="Renault", engine="V8")
@@ -182,6 +184,8 @@ def live_server_with_unsyced_schema():
     @app.get("/schema")
     def schema() -> dict:
         return router.get_schema()
+
+    router.mount(app)
 
     import uvicorn
 
